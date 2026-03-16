@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Outing Planner — AI Local Activity Finder</title>
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1117;
+  --bg-card: #1a1d27;
+  --bg-hover: #242836;
+  --border: #2a2e3b;
+  --text: #e4e6ed;
+  --text-dim: #8b8fa3;
+  --accent: #6c63ff;
+  --accent-hover: #7b73ff;
+  --accent-glow: rgba(108,99,255,0.15);
+  --green: #34d399;
+  --orange: #fb923c;
+  --red: #f87171;
+  --yellow: #fbbf24;
+  --radius: 12px;
+  --chat-width: 420px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Top Bar */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  height: 56px;
+  z-index: 100;
+}
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.logo {
+  font-size: 20px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.city-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: var(--text);
+  font-size: 14px;
+}
+.city-selector select {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  padding-right: 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238b8fa3' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right center;
+}
+.city-selector select option { background: var(--bg-card); color: var(--text); }
+.icon-btn {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-dim);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 16px;
+}
+.icon-btn:hover { background: var(--bg-hover); color: var(--text); border-color: var(--accent); }
+.weather-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+/* Main Layout */
+.main-layout {
+  display: flex;
+  height: calc(100vh - 56px);
+}
+
+/* Chat Panel */
+.chat-panel {
+  width: var(--chat-width);
+  min-width: var(--chat-width);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+}
+.opportunities-panel {
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+  overflow-y: auto;
+  max-height: 240px;
+}
+.opp-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  margin-bottom: 10px;
+}
+.opp-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.opp-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.opp-chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+.opp-chip .opp-icon { font-size: 15px; }
+
+/* Messages */
+.messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.message {
+  max-width: 90%;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  line-height: 1.5;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.message.user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+.message.assistant {
+  align-self: flex-start;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+.message.assistant strong { color: var(--accent); font-weight: 600; }
+
+/* Cost Estimate in chat */
+.cost-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-top: 8px;
+  font-size: 13px;
+}
+.cost-card h4 { font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-dim); }
+.cost-row { display: flex; justify-content: space-between; padding: 3px 0; }
+.cost-row.total { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 6px; font-weight: 600; color: var(--green); }
+.cost-warning { color: var(--orange); font-size: 12px; margin-top: 4px; }
+
+/* Chat Input */
+.chat-input-container {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+.chat-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  transition: border-color 0.2s;
+}
+.chat-input-wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.chat-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+}
+.chat-input::placeholder { color: var(--text-dim); }
+.send-btn {
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.send-btn:hover { background: var(--accent-hover); }
+.send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.typing-indicator { font-size: 12px; color: var(--text-dim); padding: 4px 0 0; }
+
+/* Map Panel */
+.map-panel {
+  flex: 1;
+  position: relative;
+}
+#map { width: 100%; height: 100%; }
+
+/* Place Cards Overlay */
+.place-cards-overlay {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 4px;
+  scrollbar-width: thin;
+  z-index: 10;
+}
+.place-card {
+  min-width: 280px;
+  max-width: 320px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.place-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.place-card.active { border-color: var(--accent); box-shadow: 0 4px 20px var(--accent-glow); }
+.place-card-img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  background: var(--bg-hover);
+}
+.place-card-body { padding: 12px; }
+.place-card-name {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.place-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.place-card-meta .rating { color: var(--yellow); }
+.place-card-meta .price { color: var(--green); }
+.place-card-details {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+  flex-wrap: wrap;
+}
+.place-tag {
+  background: var(--bg);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.place-score {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--accent);
+  color: white;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Place Detail Panel */
+.place-detail-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 360px;
+  height: 100%;
+  background: var(--bg-card);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  z-index: 20;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.3);
+}
+.place-detail-overlay.open { transform: translateX(0); }
+.detail-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0,0,0,0.5);
+  border: none;
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  z-index: 5;
+}
+.detail-img { width: 100%; height: 200px; object-fit: cover; background: var(--bg-hover); }
+.detail-body { padding: 16px; }
+.detail-name { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+.detail-address { font-size: 13px; color: var(--text-dim); margin-bottom: 12px; }
+.detail-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.detail-stat {
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+.detail-stat-value { font-size: 18px; font-weight: 700; }
+.detail-stat-label { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+.detail-signals { margin-top: 12px; }
+.detail-signal-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.signal-bar {
+  width: 60px;
+  height: 6px;
+  background: var(--bg);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.signal-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+.signal-high { background: var(--green); width: 100%; }
+.signal-medium { background: var(--yellow); width: 60%; }
+.signal-low { background: var(--red); width: 30%; }
+.signal-none { background: var(--border); width: 10%; }
+
+/* Settings Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 480px;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 24px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.modal h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+.form-group { margin-bottom: 16px; }
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--accent);
+}
+.form-textarea { min-height: 80px; resize: vertical; }
+.form-select { cursor: pointer; }
+.form-select option { background: var(--bg-card); }
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+.btn {
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+.btn-primary { background: var(--accent); color: white; border-color: var(--accent); }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-ghost { background: transparent; color: var(--text-dim); }
+.btn-ghost:hover { background: var(--bg-hover); color: var(--text); }
+
+/* Map popups */
+.mapboxgl-popup-content {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+  border-radius: 10px !important;
+  padding: 12px !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;
+  border: 1px solid var(--border) !important;
+  min-width: 200px;
+}
+.mapboxgl-popup-tip { border-top-color: var(--bg-card) !important; }
+.mapboxgl-popup-close-button { color: var(--text-dim) !important; font-size: 18px !important; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* Map fallback */
+.map-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a1d27 0%, #0f1117 100%);
+  color: var(--text-dim);
+  font-size: 14px;
+  text-align: center;
+  gap: 12px;
+}
+.map-fallback-icon { font-size: 48px; }
+.map-places-list {
+  margin-top: 16px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 60%;
+  overflow-y: auto;
+}
+.map-place-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.map-place-item:hover { border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="top-bar">
+  <div class="top-bar-left">
+    <div class="logo">🗺️ Outing Planner</div>
+  </div>
+  <div class="top-bar-right">
+    <div class="weather-badge" id="weatherBadge">
+      <span id="weatherIcon">🌤️</span>
+      <span id="weatherTemp">--°F</span>
+    </div>
+    <div class="city-selector">
+      <span>📍</span>
+      <select id="citySelect">
+        <option value="San Francisco">San Francisco</option>
+        <option value="New York">New York</option>
+        <option value="Los Angeles">Los Angeles</option>
+        <option value="Seattle">Seattle</option>
+        <option value="Chicago">Chicago</option>
+        <option value="Austin">Austin</option>
+        <option value="Portland">Portland</option>
+        <option value="Boston">Boston</option>
+        <option value="Denver">Denver</option>
+        <option value="Bangalore">Bangalore</option>
+        <option value="Mumbai">Mumbai</option>
+        <option value="Sunnyvale">Sunnyvale</option>
+      </select>
+    </div>
+    <button class="icon-btn" id="refreshBtn" title="Refresh data">🔄</button>
+    <button class="icon-btn" id="settingsBtn" title="Settings">⚙️</button>
+  </div>
+</div>
+
+<!-- Main Layout -->
+<div class="main-layout">
+  <!-- Chat Panel -->
+  <div class="chat-panel">
+    <!-- Opportunities -->
+    <div class="opportunities-panel" id="opportunitiesPanel">
+      <div class="opp-title">✨ Today Might Be Good For</div>
+      <div class="opp-grid" id="oppGrid">
+        <div class="opp-chip" style="opacity:0.5">Loading suggestions...</div>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages-container" id="messagesContainer">
+      <div class="message assistant">
+        Welcome! I'm your AI outing planner. Tell me what you're in the mood for — food, outdoor adventures, coffee shops, or anything else.
+        Try: <em>"I want cheap Chinese food"</em> or <em>"Find a coffee shop to work in"</em>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="chat-input-container">
+      <div class="chat-input-wrap">
+        <input type="text" class="chat-input" id="chatInput"
+               placeholder="What are you in the mood for today?"
+               autocomplete="off">
+        <button class="send-btn" id="sendBtn" title="Send">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="typing-indicator" id="typingIndicator" style="display:none">🤔 Thinking...</div>
+    </div>
+  </div>
+
+  <!-- Map Panel -->
+  <div class="map-panel">
+    <div id="map"></div>
+    <div class="place-cards-overlay" id="placeCards" style="display:none"></div>
+    <div class="place-detail-overlay" id="placeDetail">
+      <button class="detail-close" id="detailClose">✕</button>
+      <div id="detailContent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <h2>⚙️ User Context & Settings</h2>
+    <div class="form-group">
+      <label class="form-label">Home Location</label>
+      <input type="text" class="form-input" id="settingsHome" placeholder="e.g., 570 Beale St, San Francisco">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Transportation</label>
+      <select class="form-select" id="settingsTransport">
+        <option value="car">Car</option>
+        <option value="walk">Walking</option>
+        <option value="bike">Bicycle</option>
+        <option value="transit">Public Transit</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Walking Threshold (minutes)</label>
+      <input type="number" class="form-input" id="settingsWalkThreshold" value="15" min="1" max="60">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Budget Preference</label>
+      <select class="form-select" id="settingsBudget">
+        <option value="budget">Budget-friendly</option>
+        <option value="moderate" selected>Moderate</option>
+        <option value="luxury">Luxury</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Toll Preference</label>
+      <select class="form-select" id="settingsToll">
+        <option value="avoid" selected>Avoid toll crossings when possible</option>
+        <option value="ok">Tolls are fine</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Other Notes</label>
+      <textarea class="form-textarea" id="settingsNotes" placeholder="e.g., I have a dog, prefer outdoor seating, allergic to shellfish..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="settingsCancel">Cancel</button>
+      <button class="btn btn-primary" id="settingsSave">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mapbox GL JS -->
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+
+<script>
+// ============================================================
+// State Management
+// ============================================================
+const state = {
+  city: 'San Francisco',
+  lat: 37.7749,
+  lng: -122.4194,
+  conversationId: null,
+  places: [],
+  selectedPlace: null,
+  settings: {},
+  mapReady: false,
+  weather: null,
+};
+
+const CITY_COORDS = {
+  'San Francisco': { lat: 37.7749, lng: -122.4194 },
+  'New York': { lat: 40.7128, lng: -74.0060 },
+  'Los Angeles': { lat: 34.0522, lng: -118.2437 },
+  'Seattle': { lat: 47.6062, lng: -122.3321 },
+  'Chicago': { lat: 41.8781, lng: -87.6298 },
+  'Austin': { lat: 30.2672, lng: -97.7431 },
+  'Portland': { lat: 45.5152, lng: -122.6784 },
+  'Boston': { lat: 42.3601, lng: -71.0589 },
+  'Denver': { lat: 39.7392, lng: -104.9903 },
+  'Bangalore': { lat: 12.9716, lng: 77.5946 },
+  'Mumbai': { lat: 19.0760, lng: 72.8777 },
+  'Sunnyvale': { lat: 37.3688, lng: -122.0363 },
+};
+
+// ============================================================
+// Map Initialization
+// ============================================================
+let map = null;
+let markers = [];
+let mapboxLoaded = false;
+
+function initMap() {
+  try {
+    // Mapbox token is injected from server
+    mapboxgl.accessToken = window.MAPBOX_TOKEN;
+    map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: [state.lng, state.lat],
+      zoom: 12,
+    });
+    map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+    map.on('load', () => { state.mapReady = true; mapboxLoaded = true; });
+    map.on('error', () => { showMapFallback(); });
+  } catch (e) {
+    showMapFallback();
+  }
+}
+
+function showMapFallback() {
+  const mapEl = document.getElementById('map');
+  mapEl.innerHTML = `
+    <div class="map-fallback">
+      <div class="map-fallback-icon">🗺️</div>
+      <div>Map visualization<br><small style="color:var(--text-dim)">Results will appear here as cards</small></div>
+      <div class="map-places-list" id="mapPlacesList"></div>
+    </div>`;
+}
+
+function clearMarkers() {
+  markers.forEach(m => m.remove());
+  markers = [];
+}
+
+function addMarkers(places) {
+  clearMarkers();
+  if (!map || !mapboxLoaded) {
+    updateFallbackList(places);
+    return;
+  }
+
+  const bounds = new mapboxgl.LngLatBounds();
+
+  places.forEach((place, i) => {
+    if (!place.lat || !place.lng) return;
+
+    const el = document.createElement('div');
+    el.style.cssText = `
+      width: 30px; height: 30px; background: var(--accent); border-radius: 50%;
+      border: 3px solid white; display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: white; cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    `;
+    el.textContent = i + 1;
+
+    const marker = new mapboxgl.Marker(el)
+      .setLngLat([place.lng, place.lat])
+      .addTo(map);
+
+    el.addEventListener('click', () => selectPlace(place));
+    markers.push(marker);
+    bounds.extend([place.lng, place.lat]);
+  });
+
+  if (places.length > 0) {
+    map.fitBounds(bounds, { padding: 80, maxZoom: 14 });
+  }
+}
+
+function updateFallbackList(places) {
+  const list = document.getElementById('mapPlacesList');
+  if (!list) return;
+  list.innerHTML = places.map((p, i) => `
+    <div class="map-place-item" onclick="selectPlace(window._places[${i}])">
+      <div style="font-weight:600">${i+1}. ${p.name}</div>
+      <div style="font-size:12px;color:var(--text-dim);margin-top:4px">
+        ⭐ ${p.rating} · ${'$'.repeat(p.price_level || 1)} · ${p.address || ''}
+        ${p.travel_time_min ? `· ${p.travel_time_min} min ${p.travel_mode || ''}` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// Place Cards
+// ============================================================
+function renderPlaceCards(places) {
+  const container = document.getElementById('placeCards');
+  if (!places || places.length === 0) {
+    container.style.display = 'none';
+    return;
+  }
+  container.style.display = 'flex';
+  container.innerHTML = places.slice(0, 8).map((p, i) => {
+    const img = p.photos && p.photos[0] ? p.photos[0] : '';
+    const priceStr = '$'.repeat(p.price_level || 1);
+    return `
+      <div class="place-card" data-idx="${i}" onclick="selectPlace(window._places[${i}])">
+        ${img ? `<img class="place-card-img" src="${img}" alt="${p.name}" onerror="this.style.display='none'">` :
+                `<div class="place-card-img" style="display:flex;align-items:center;justify-content:center;font-size:32px">📍</div>`}
+        <div class="place-card-body" style="position:relative">
+          ${p.score ? `<div class="place-score" style="position:absolute;top:-28px;right:8px">${Math.round(p.score)}</div>` : ''}
+          <div class="place-card-name">${p.name}</div>
+          <div class="place-card-meta">
+            <span class="rating">⭐ ${p.rating || 'N/A'}</span>
+            <span class="price">${priceStr}</span>
+            <span>${p.review_count || 0} reviews</span>
+          </div>
+          <div class="place-card-details">
+            ${p.travel_time_min ? `<span class="place-tag">${p.travel_mode === 'walk' ? '🚶' : '🚗'} ${p.travel_time_min} min</span>` : ''}
+            ${p.open_now ? '<span class="place-tag" style="color:var(--green)">Open</span>' : ''}
+            ${p.distance_miles ? `<span class="place-tag">${p.distance_miles} mi</span>` : ''}
+            ${p.review_signals && p.review_signals.wifi === 'none' ? '<span class="place-tag" style="color:var(--red)">No WiFi</span>' : ''}
+            ${p.review_signals && p.review_signals.wifi === 'high' ? '<span class="place-tag" style="color:var(--green)">WiFi ✓</span>' : ''}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ============================================================
+// Place Detail
+// ============================================================
+function selectPlace(place) {
+  state.selectedPlace = place;
+  const panel = document.getElementById('placeDetail');
+  const content = document.getElementById('detailContent');
+
+  const img = place.photos && place.photos[0] ? place.photos[0] : '';
+  const signals = place.review_signals || {};
+  const signalNames = Object.keys(signals).filter(k => signals[k] !== 'none');
+
+  content.innerHTML = `
+    ${img ? `<img class="detail-img" src="${img}" alt="${place.name}" onerror="this.style.display='none'">` :
+            `<div class="detail-img" style="display:flex;align-items:center;justify-content:center;font-size:48px;background:var(--bg-hover)">📍</div>`}
+    <div class="detail-body">
+      <div class="detail-name">${place.name}</div>
+      <div class="detail-address">${place.address || ''}</div>
+      <div class="detail-stats">
+        <div class="detail-stat">
+          <div class="detail-stat-value" style="color:var(--yellow)">⭐ ${place.rating || 'N/A'}</div>
+          <div class="detail-stat-label">${place.review_count || 0} reviews</div>
+        </div>
+        <div class="detail-stat">
+          <div class="detail-stat-value" style="color:var(--green)">${'$'.repeat(place.price_level || 1)}</div>
+          <div class="detail-stat-label">Price level</div>
+        </div>
+        <div class="detail-stat">
+          <div class="detail-stat-value">${place.travel_time_min || '--'}<small>min</small></div>
+          <div class="detail-stat-label">${place.travel_mode || 'drive'}</div>
+        </div>
+        <div class="detail-stat">
+          <div class="detail-stat-value">${place.distance_miles || '--'}<small>mi</small></div>
+          <div class="detail-stat-label">distance</div>
+        </div>
+      </div>
+      ${place.score ? `<div style="margin-bottom:12px;font-size:14px">Match Score: <strong style="color:var(--accent)">${Math.round(place.score)}/100</strong></div>` : ''}
+      ${place.open_now !== null ? `<div style="margin-bottom:12px;font-size:13px">${place.open_now ? '🟢 Currently Open' : '🔴 Currently Closed'}</div>` : ''}
+      ${signalNames.length > 0 ? `
+        <div class="detail-signals">
+          <div style="font-size:13px;font-weight:600;color:var(--text-dim);margin-bottom:8px">Review Signals</div>
+          ${signalNames.map(key => `
+            <div class="detail-signal-row">
+              <span>${key.replace(/_/g, ' ')}</span>
+              <div class="signal-bar"><div class="signal-bar-fill signal-${signals[key]}"></div></div>
+            </div>
+          `).join('')}
+        </div>
+      ` : ''}
+      ${place.types && place.types.length ? `
+        <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:6px">
+          ${place.types.slice(0, 6).map(t => `<span class="place-tag" style="font-size:11px">${t.replace(/_/g, ' ')}</span>`).join('')}
+        </div>
+      ` : ''}
+    </div>`;
+
+  panel.classList.add('open');
+
+  // Center map on place
+  if (map && mapboxLoaded && place.lat && place.lng) {
+    map.flyTo({ center: [place.lng, place.lat], zoom: 15 });
+  }
+}
+
+document.getElementById('detailClose').addEventListener('click', () => {
+  document.getElementById('placeDetail').classList.remove('open');
+  state.selectedPlace = null;
+});
+
+// ============================================================
+// Chat
+// ============================================================
+async function sendMessage(text) {
+  if (!text.trim()) return;
+
+  addChatMessage('user', text);
+  document.getElementById('chatInput').value = '';
+  document.getElementById('typingIndicator').style.display = 'block';
+  document.getElementById('sendBtn').disabled = true;
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: text,
+        city: state.city,
+        lat: state.lat,
+        lng: state.lng,
+        conversation_id: state.conversationId,
+      }),
+    });
+    const data = await resp.json();
+
+    state.conversationId = data.conversation_id;
+
+    // Add assistant message
+    addChatMessage('assistant', data.message);
+
+    // Cost estimate
+    if (data.cost_estimate && data.cost_estimate.items && data.cost_estimate.items.length > 0) {
+      addCostCard(data.cost_estimate);
+    }
+
+    // Update places
+    if (data.places && data.places.length > 0) {
+      state.places = data.places;
+      window._places = data.places;
+      renderPlaceCards(data.places);
+      addMarkers(data.places);
+    }
+  } catch (err) {
+    addChatMessage('assistant', 'Sorry, I encountered an error. Please try again.');
+    console.error(err);
+  }
+
+  document.getElementById('typingIndicator').style.display = 'none';
+  document.getElementById('sendBtn').disabled = false;
+}
+
+function addChatMessage(role, text) {
+  const container = document.getElementById('messagesContainer');
+  const div = document.createElement('div');
+  div.className = `message ${role}`;
+  // Process markdown-like bold
+  div.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function addCostCard(estimate) {
+  const container = document.getElementById('messagesContainer');
+  const div = document.createElement('div');
+  div.className = 'cost-card';
+  div.innerHTML = `
+    <h4>💰 Estimated Outing Cost</h4>
+    ${estimate.items.map(item => `
+      <div class="cost-row">
+        <span>${item.label}</span>
+        <span>~$${item.estimate}</span>
+      </div>
+      ${item.warning ? `<div class="cost-warning">⚠️ ${item.warning}</div>` : ''}
+    `).join('')}
+    <div class="cost-row total">
+      <span>Total estimate</span>
+      <span>~$${estimate.total}</span>
+    </div>
+  `;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+// Input handlers
+document.getElementById('chatInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage(e.target.value);
+  }
+});
+document.getElementById('sendBtn').addEventListener('click', () => {
+  sendMessage(document.getElementById('chatInput').value);
+});
+
+// ============================================================
+// Opportunities
+// ============================================================
+async function loadOpportunities() {
+  try {
+    const resp = await fetch(`/api/opportunities?city=${encodeURIComponent(state.city)}&lat=${state.lat}&lng=${state.lng}`);
+    const data = await resp.json();
+
+    if (data.weather) {
+      state.weather = data.weather;
+      updateWeatherBadge(data.weather);
+    }
+
+    const grid = document.getElementById('oppGrid');
+    const suggestions = data.suggestions || [];
+    if (suggestions.length === 0) {
+      grid.innerHTML = '<div class="opp-chip" style="opacity:0.5">No suggestions right now</div>';
+      return;
+    }
+
+    grid.innerHTML = suggestions.map((s, i) => `
+      <div class="opp-chip" onclick="handleOpportunity(${i})" title="${s.reason || ''}">
+        <span class="opp-icon">${s.icon}</span>
+        <span>${s.text}</span>
+      </div>
+    `).join('');
+
+    window._opportunities = suggestions;
+  } catch (err) {
+    console.error('Failed to load opportunities:', err);
+  }
+}
+
+function handleOpportunity(index) {
+  const opp = window._opportunities?.[index];
+  if (opp && opp.query) {
+    document.getElementById('chatInput').value = opp.query;
+    sendMessage(opp.query);
+  }
+}
+
+function updateWeatherBadge(weather) {
+  if (!weather) return;
+  const iconMap = {
+    '01d': '☀️', '01n': '🌙', '02d': '⛅', '02n': '☁️',
+    '03d': '☁️', '03n': '☁️', '04d': '☁️', '04n': '☁️',
+    '09d': '🌧️', '09n': '🌧️', '10d': '🌦️', '10n': '🌧️',
+    '11d': '⛈️', '11n': '⛈️', '13d': '❄️', '13n': '❄️',
+  };
+  document.getElementById('weatherIcon').textContent = iconMap[weather.icon] || '🌤️';
+  document.getElementById('weatherTemp').textContent = `${Math.round(weather.temp_f)}°F`;
+}
+
+// ============================================================
+// City Switching
+// ============================================================
+document.getElementById('citySelect').addEventListener('change', async (e) => {
+  const newCity = e.target.value;
+  state.city = newCity;
+  const coords = CITY_COORDS[newCity] || { lat: 37.7749, lng: -122.4194 };
+  state.lat = coords.lat;
+  state.lng = coords.lng;
+
+  // Update settings
+  await fetch('/api/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ city: newCity }),
+  });
+
+  // Re-center map
+  if (map && mapboxLoaded) {
+    map.flyTo({ center: [state.lng, state.lat], zoom: 12 });
+  }
+
+  // Clear current results
+  clearMarkers();
+  document.getElementById('placeCards').style.display = 'none';
+  document.getElementById('placeDetail').classList.remove('open');
+
+  // Reload opportunities
+  loadOpportunities();
+
+  // New conversation
+  state.conversationId = null;
+  addChatMessage('assistant', `Switched to **${newCity}**! What would you like to explore here?`);
+});
+
+// ============================================================
+// Refresh
+// ============================================================
+document.getElementById('refreshBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('refreshBtn');
+  btn.textContent = '⏳';
+
+  await fetch('/api/clear-cache', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ city: state.city }),
+  });
+
+  await loadOpportunities();
+  addChatMessage('assistant', `Refreshed data for **${state.city}**. Ask me anything!`);
+  btn.textContent = '🔄';
+});
+
+// ============================================================
+// Settings
+// ============================================================
+document.getElementById('settingsBtn').addEventListener('click', async () => {
+  // Load current settings
+  try {
+    const resp = await fetch('/api/settings');
+    const data = await resp.json();
+    state.settings = data;
+    document.getElementById('settingsHome').value = data.home_location || '';
+    document.getElementById('settingsTransport').value = data.transportation || 'car';
+    document.getElementById('settingsWalkThreshold').value = data.walking_threshold_min || 15;
+    document.getElementById('settingsBudget').value = data.budget_preference || 'moderate';
+    document.getElementById('settingsToll').value = data.toll_preference || 'avoid';
+    document.getElementById('settingsNotes').value = data.other_notes || '';
+  } catch(e) {}
+
+  document.getElementById('settingsModal').classList.add('open');
+});
+
+document.getElementById('settingsCancel').addEventListener('click', () => {
+  document.getElementById('settingsModal').classList.remove('open');
+});
+
+document.getElementById('settingsSave').addEventListener('click', async () => {
+  const settings = {
+    home_location: document.getElementById('settingsHome').value,
+    transportation: document.getElementById('settingsTransport').value,
+    walking_threshold_min: parseInt(document.getElementById('settingsWalkThreshold').value),
+    budget_preference: document.getElementById('settingsBudget').value,
+    toll_preference: document.getElementById('settingsToll').value,
+    other_notes: document.getElementById('settingsNotes').value,
+    city: state.city,
+  };
+
+  await fetch('/api/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
+  });
+
+  state.settings = settings;
+  document.getElementById('settingsModal').classList.remove('open');
+  addChatMessage('assistant', 'Settings saved! I\'ll use your preferences for future recommendations.');
+});
+
+// Close modal on overlay click
+document.getElementById('settingsModal').addEventListener('click', (e) => {
+  if (e.target.id === 'settingsModal') {
+    document.getElementById('settingsModal').classList.remove('open');
+  }
+});
+
+// ============================================================
+// Geolocation Detection
+// ============================================================
+async function detectCity() {
+  if (!navigator.geolocation) {
+    return;
+  }
+
+  try {
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000, enableHighAccuracy: true });
+    });
+
+    // Always update live GPS — this is what the search radius centers on
+    state.lat = pos.coords.latitude;
+    state.lng = pos.coords.longitude;
+    console.log(`📍 Live GPS: ${state.lat.toFixed(5)}, ${state.lng.toFixed(5)}`);
+
+    // Reverse geocode
+    const resp = await fetch(`/api/reverse-geocode?lat=${state.lat}&lng=${state.lng}`);
+    const data = await resp.json();
+
+    if (data.city) {
+      state.city = data.city;
+      // Add to dropdown if not present
+      const select = document.getElementById('citySelect');
+      let found = false;
+      for (const opt of select.options) {
+        if (opt.value === data.city) { found = true; opt.selected = true; break; }
+      }
+      if (!found) {
+        const opt = document.createElement('option');
+        opt.value = data.city;
+        opt.textContent = data.city;
+        opt.selected = true;
+        select.appendChild(opt);
+      }
+      // Update CITY_COORDS
+      CITY_COORDS[data.city] = { lat: state.lat, lng: state.lng };
+    }
+  } catch (e) {
+    console.log('Geolocation not available, using default city');
+  }
+}
+
+// ============================================================
+// Init
+// ============================================================
+window._places = [];
+window._opportunities = [];
+
+(async function init() {
+  initMap();
+  await detectCity();
+  loadOpportunities();
+
+  // Load settings
+  try {
+    const resp = await fetch('/api/settings');
+    state.settings = await resp.json();
+    if (state.settings.home_lat && state.settings.home_lng) {
+      state.lat = state.settings.home_lat;
+      state.lng = state.settings.home_lng;
+    }
+  } catch(e) {}
+})();
+</script>
+</body>
+</html>
