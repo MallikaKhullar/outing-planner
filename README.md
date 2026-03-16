@@ -96,24 +96,19 @@ Navigate to `http://localhost:8080`
 ## 🎬 Screenshots
 
 ### Home Screen - Serendipitous Suggestions
+![Home](./screenshots/01-home.png)
+
 Shows the app's main interface with AI-powered suggestions based on time of day and weather. The left sidebar displays contextual recommendations like "Perfect weather for a short hike" and "Explore dinner options tonight."
 
-**To add: `screenshots/01-home.png`**
-
 ### Natural Language Search Results
+![Search](./screenshots/02-search.png)
+
 Type a natural language query like "Find a cozy coffee shop to work in" and get intelligent recommendations. The app parses your intent and returns results ranked by relevance to your specific needs (WiFi availability, noise level, seating, etc.).
 
-**To add: `screenshots/02-search-results.png`**
+### Interactive Map with Results
+![Results](./screenshots/03-results.png)
 
-### Interactive Map with Pinned Results
 See all recommendations displayed on an interactive Mapbox map with numbered markers. Each marker is clickable to view detailed place information including ratings, reviews, distance, and travel time.
-
-**To add: `screenshots/03-map-view.png`**
-
-### Place Details & Smart Insights
-View detailed place cards showing ratings, review count, prices, hours, distance, and extracted review insights (WiFi availability, noise level, ambiance mentions extracted from real user reviews).
-
-**To add: `screenshots/04-place-details.png`**
 
 ## 📖 How to Use
 
